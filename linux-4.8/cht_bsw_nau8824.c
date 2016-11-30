@@ -28,13 +28,21 @@
 #include <sound/soc.h>
 #include <sound/jack.h>
 #include "sst-atom-controls.h"
+#include "sst-acpi.h"
 #include "nau8824.h"
 
 #define CHT_PLAT_CLK_3_HZ	19200000
-#define CHT_CODEC_DAI	"HiFi"
+#define CHT_CODEC_DAI	"nau8824-hifi"
+
+struct cht_acpi_card {
+  char *codec_id;
+  int codec_type;
+  struct snd_soc_card *soc_card;
+};
 
 struct cht_mc_private {
-	struct snd_soc_jack jack;
+  struct snd_soc_jack jack;
+  struct cht_acpi_card *acpi_card;
 };
 
 static inline struct snd_soc_dai *cht_get_codec_dai(struct snd_soc_card *card)
@@ -201,7 +209,7 @@ static struct snd_soc_dai_link cht_dailink[] = {
 		.cpu_dai_name = "ssp2-port",
 		.platform_name = "sst-mfld-platform",
 		.no_pcm = 1,
-		.codec_dai_name = "HiFi",
+		.codec_dai_name = "nau8824-hifi",
 		.codec_name = "i2c-10508824:00",
 		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF
 					| SND_SOC_DAIFMT_CBS_CFS,
@@ -227,15 +235,54 @@ static struct snd_soc_card snd_soc_card_cht = {
 	.num_controls = ARRAY_SIZE(cht_mc_controls),
 };
 
+static struct cht_acpi_card snd_soc_cards[] = {
+  {"10508824", 0, &snd_soc_card_cht}
+};
+
+static char cht_rt5640_codec_name[16];
+
 static int snd_cht_mc_probe(struct platform_device *pdev)
 {
 	int ret_val = 0;
 	struct cht_mc_private *drv;
+	struct snd_soc_card *card = snd_soc_cards[0].soc_card;
+	char codec_name[16];
+	struct sst_acpi_mach *mach;
+	const char *i2c_name = NULL;
+	int dai_index = 0;
+	int i;
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_ATOMIC);
 	if (!drv)
 		return -ENOMEM;
+	for (i = 0; i < ARRAY_SIZE(snd_soc_cards); i++) {
+	  if (acpi_dev_found(snd_soc_cards[i].codec_id)) {
+	    dev_dbg(&pdev->dev,
+		    "found codec %s\n", snd_soc_cards[i].codec_id);
+	    card = snd_soc_cards[i].soc_card;
+	    drv->acpi_card = &snd_soc_cards[i];
+	    break;
+	  }
+	}
+	card->dev = &pdev->dev;
+	mach = card->dev->platform_data;
+	sprintf(codec_name, "i2c-%s:00", drv->acpi_card->codec_id);
 
+	/* set correct codec name */
+	for (i = 0; i < ARRAY_SIZE(cht_dailink); i++)
+	  if (!strcmp(card->dai_link[i].codec_name, "i2c-10508824:00")) {
+	    card->dai_link[i].codec_name = kstrdup(codec_name, GFP_KERNEL);
+	    dai_index = i;
+	  }
+
+	/* fixup codec name based on HID */
+	i2c_name = sst_acpi_find_name_from_hid(mach->id);
+	if (i2c_name != NULL) {
+	  snprintf(cht_rt5640_codec_name, sizeof(cht_rt5640_codec_name),
+		   "%s%s", "i2c-", i2c_name);
+	  cht_dailink[dai_index].codec_name = cht_rt5640_codec_name;
+	}
+	
 	/* register the soc card */
 	snd_soc_card_cht.dev = &pdev->dev;
 	snd_soc_card_set_drvdata(&snd_soc_card_cht, drv);
