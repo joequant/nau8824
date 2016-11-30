@@ -1,2 +1,5 @@
 obj-m  := snd-soc-nau8824.o
-snd-soc-nau8824-y := nau8824.o
+obj-m  += snd-soc-sst-cht-bsw-nau8824.o
+snd-soc-nau8824-objs := nau8824.o
+snd-soc-sst-cht-bsw-nau8824-objs := cht_bsw_nau8824.o
+
