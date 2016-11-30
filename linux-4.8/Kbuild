@@ -1,0 +1,2 @@
+obj-m  := snd-soc-nau8824.o
+snd-soc-nau8824-y := nau8824.o
