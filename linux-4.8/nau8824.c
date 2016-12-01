@@ -1,3 +1,5 @@
+#define TEMP_CRASH_WORKAROUND 1
+
 /*
  * NAU8824 ALSA SoC audio driver
  *
@@ -1530,9 +1532,10 @@ static int nau8824_i2c_probe(struct i2c_client *i2c,
 	}
 	nau8824_init_regs(nau8824);
 
+#ifndef TEMP_CRASH_WORKAROUND
 	if (i2c->irq)
 		nau8824_setup_irq(nau8824);
-
+#endif
 	return snd_soc_register_codec(dev,
 		&nau8824_codec_driver, &nau8824_dai, 1);
 }
