@@ -1,4 +1,5 @@
 #define TEMP_CRASH_WORKAROUND 1
+#define DEBUG 1
 
 /*
  * NAU8824 ALSA SoC audio driver
@@ -744,6 +745,8 @@ static void nau8824_jdet_work(struct work_struct *work)
 	struct regmap *regmap = nau8824->regmap;
 	int adc_value, event = 0, event_mask = 0;
 
+	if (!dapm)
+	  return;
 	snd_soc_dapm_force_enable_pin(dapm, "MICBIAS");
 	snd_soc_dapm_force_enable_pin(dapm, "SAR");
 	snd_soc_dapm_sync(dapm);
@@ -852,7 +855,7 @@ static irqreturn_t nau8824_interrupt(int irq, void *data)
 		regmap_update_bits(regmap,
 			NAU8824_REG_INTERRUPT_SETTING_1,
 			NAU8824_IRQ_INSERT_EN, 0);
-		/* detect microphone and jack type */
+
 		cancel_work_sync(&nau8824->jdet_work);
 		schedule_work(&nau8824->jdet_work);
 
@@ -1435,7 +1438,7 @@ EXPORT_SYMBOL_GPL(nau8824_enable_jack_detect);
 static int nau8824_setup_irq(struct nau8824 *nau8824)
 {
 	int ret;
-
+	INIT_WORK(&nau8824->jdet_work, nau8824_jdet_work);
 	ret = devm_request_threaded_irq(nau8824->dev, nau8824->irq, NULL,
 		nau8824_interrupt, IRQF_TRIGGER_LOW | IRQF_ONESHOT,
 		"nau8824", nau8824);
@@ -1443,8 +1446,6 @@ static int nau8824_setup_irq(struct nau8824 *nau8824)
 		dev_err(nau8824->dev, "Cannot request irq %d (%d)\n",
 			nau8824->irq, ret);
 	}
-	INIT_WORK(&nau8824->jdet_work, nau8824_jdet_work);
-
 	return ret;
 }
 
@@ -1494,6 +1495,19 @@ static int nau8824_read_device_properties(struct device *dev,
 	device_property_read_u32(dev, "nuvoton,jack-eject-debounce",
 		&nau8824->jack_eject_debounce);
 
+	nau8824->micbias_voltage = 6;
+	nau8824->vref_impedance = 2;
+	nau8824->sar_threshold_num = 4;
+	nau8824->sar_threshold[0] = 0x0a;
+	nau8824->sar_threshold[1] = 0x14;
+	nau8824->sar_threshold[2] = 0x26;
+	nau8824->sar_threshold[3] = 0x73;
+	nau8824->sar_hysteresis = 0;
+	nau8824->sar_voltage = 6;
+	nau8824->sar_compare_time = 1;
+	nau8824->sar_sampling_time = 1;
+	nau8824->key_debounce = 0;
+	nau8824->jack_eject_debounce = 1;
 	return 0;
 }
 
@@ -1531,7 +1545,6 @@ static int nau8824_i2c_probe(struct i2c_client *i2c,
 		return ret;
 	}
 	nau8824_init_regs(nau8824);
-
 #ifndef TEMP_CRASH_WORKAROUND
 	if (i2c->irq)
 		nau8824_setup_irq(nau8824);

@@ -27,6 +27,7 @@
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
 #include <sound/jack.h>
+#include <uapi/linux/input-event-codes.h>
 #include "sst-atom-controls.h"
 #include "sst-acpi.h"
 #include "nau8824.h"
@@ -65,19 +66,27 @@ static const struct snd_soc_dapm_widget cht_dapm_widgets[] = {
 };
 
 static const struct snd_soc_dapm_route cht_audio_map[] = {
-	{"IN34", NULL, "Headset Mic"},
-	{"Headset Mic", NULL, "MICBIAS"},
-	{"DMICL", NULL, "Int Mic"},
-	{"Headphone", NULL, "HPL"},
-	{"Headphone", NULL, "HPR"},
-	{"Ext Spk", NULL, "SPKL"},
-	{"Ext Spk", NULL, "SPKR"},
-	{"HiFi Playback", NULL, "ssp2 Tx"},
+	/* External Speakers: SPKOUTL, SPKOUTR */
+	{"Ext Spk", NULL, "SPKOUTL"},
+	{"Ext Spk", NULL, "SPKOUTR"},
+	/* Headset Stereophone(Headphone): HPOL, HPOR */
+	{"Headphone", NULL, "HPOL"},
+	{"Headphone", NULL, "HPOR"},
+
+	{"DMIC1", NULL, "Int Mic"},
+	{"DMIC2", NULL, "Int Mic"},
+	{"DMIC3", NULL, "Int Mic"},
+	{"DMIC4", NULL, "Int Mic"},
+	/* Headset Mic: Headset Mic with bias */
+	{"HSMIC1", NULL, "Headset Mic"},
+	{"HSMIC2", NULL, "Headset Mic"},
+
+	{"Playback", NULL, "ssp2 Tx"},
 	{"ssp2 Tx", NULL, "codec_out0"},
 	{"ssp2 Tx", NULL, "codec_out1"},
 	{"codec_in0", NULL, "ssp2 Rx" },
 	{"codec_in1", NULL, "ssp2 Rx" },
-	{"ssp2 Rx", NULL, "HiFi Capture"},
+	{"ssp2 Rx", NULL, "Capture"},
 };
 
 static const struct snd_kcontrol_new cht_mc_controls[] = {
@@ -90,7 +99,24 @@ static const struct snd_kcontrol_new cht_mc_controls[] = {
 static int cht_aif1_hw_params(struct snd_pcm_substream *substream,
 			     struct snd_pcm_hw_params *params)
 {
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	int ret;
+
+	ret = snd_soc_dai_set_sysclk(codec_dai, NAU8824_CLK_FLL_FS, 0,
+		SND_SOC_CLOCK_IN);
+	if (ret < 0)
+		dev_err(codec_dai->dev, "can't set FS clock %d\n", ret);
+
+	ret = snd_soc_dai_set_pll(codec_dai, 0, 0, params_rate(params),
+		params_rate(params) * 256);
+	if (ret < 0)
+		dev_err(codec_dai->dev, "can't set FLL: %d\n", ret);
+
+	ret = snd_soc_dai_set_clkdiv(codec_dai, NAU8824_DMIC_SRC, 0x2);
+	if (ret < 0)
+		dev_err(codec_dai->dev, "snd_soc_dai_set_clkdiv err = %d\n", ret);
+
 	return 0;
 }
 
@@ -100,16 +126,17 @@ static int cht_codec_init(struct snd_soc_pcm_runtime *runtime)
 	int jack_type;
 	struct cht_mc_private *ctx = snd_soc_card_get_drvdata(runtime->card);
 	struct snd_soc_jack *jack = &ctx->jack;
+	struct snd_soc_codec *codec = runtime->codec;
 
 	/**
-	* TI supports 4 butons headset detection
+	* NAU88L24 supports 4 butons headset detection
 	* KEY_MEDIA
 	* KEY_VOICECOMMAND
 	* KEY_VOLUMEUP
 	* KEY_VOLUMEDOWN
 	*/
-	jack_type = SND_JACK_HEADPHONE | SND_JACK_MICROPHONE;
-
+	jack_type = SND_JACK_HEADSET | SND_JACK_BTN_0 | SND_JACK_BTN_1 |
+	  SND_JACK_BTN_2 | SND_JACK_BTN_3;
 	ret = snd_soc_card_jack_new(runtime->card, "Headset Jack",
 					jack_type, jack, NULL, 0);
 
@@ -117,6 +144,13 @@ static int cht_codec_init(struct snd_soc_pcm_runtime *runtime)
 		dev_err(runtime->dev, "Headset Jack creation failed %d\n", ret);
 		return ret;
 	}
+	snd_jack_set_key(jack->jack, SND_JACK_BTN_0, KEY_MEDIA);
+	snd_jack_set_key(jack->jack, SND_JACK_BTN_1, KEY_VOICECOMMAND);
+	snd_jack_set_key(jack->jack, SND_JACK_BTN_2, KEY_VOLUMEUP);
+	snd_jack_set_key(jack->jack, SND_JACK_BTN_3, KEY_VOLUMEDOWN);
+
+	nau8824_enable_jack_detect(codec, jack);
+
 	return ret;
 }
 
@@ -282,7 +316,7 @@ static int snd_cht_mc_probe(struct platform_device *pdev)
 		   "%s%s", "i2c-", i2c_name);
 	  cht_dailink[dai_index].codec_name = cht_rt5640_codec_name;
 	}
-	
+
 	/* register the soc card */
 	snd_soc_card_cht.dev = &pdev->dev;
 	snd_soc_card_set_drvdata(&snd_soc_card_cht, drv);
