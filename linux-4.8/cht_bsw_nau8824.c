@@ -58,11 +58,46 @@ static inline struct snd_soc_dai *cht_get_codec_dai(struct snd_soc_card *card)
 	return NULL;
 }
 
+static int platform_clock_control(struct snd_soc_dapm_widget *w,
+                struct snd_kcontrol *k, int  event)
+{
+        struct snd_soc_dapm_context *dapm = w->dapm;
+        struct snd_soc_card *card = dapm->card;
+        struct snd_soc_dai *codec_dai;
+        int ret;
+
+        codec_dai = cht_get_codec_dai(card);
+        if (!codec_dai) {
+                dev_err(card->dev, "Codec dai not found\n");
+                return -EIO;
+        }
+
+        if (SND_SOC_DAPM_EVENT_ON(event)) {
+                ret = snd_soc_dai_set_sysclk(codec_dai,
+                                NAU8824_CLK_MCLK, 24000000, SND_SOC_CLOCK_IN);
+                if (ret < 0) {
+                        dev_err(card->dev, "set sysclk err = %d\n", ret);
+                        return -EIO;
+                }
+        } else {
+                ret = snd_soc_dai_set_sysclk(codec_dai,
+                                NAU8824_CLK_INTERNAL, 0, SND_SOC_CLOCK_IN);
+                if (ret < 0) {
+                        dev_err(card->dev, "set sysclk err = %d\n", ret);
+                        return -EIO;
+                }
+        }
+        return ret;
+}
+
 static const struct snd_soc_dapm_widget cht_dapm_widgets[] = {
 	SND_SOC_DAPM_HP("Headphone", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("Int Mic", NULL),
 	SND_SOC_DAPM_SPK("Ext Spk", NULL),
+	SND_SOC_DAPM_SUPPLY("Platform Clock", SND_SOC_NOPM, 0, 0,
+			    platform_clock_control, SND_SOC_DAPM_PRE_PMU |
+			    SND_SOC_DAPM_POST_PMD),
 };
 
 static const struct snd_soc_dapm_route cht_audio_map[] = {
@@ -96,6 +131,7 @@ static const struct snd_kcontrol_new cht_mc_controls[] = {
 	SOC_DAPM_PIN_SWITCH("Ext Spk"),
 };
 
+
 static int cht_aif1_hw_params(struct snd_pcm_substream *substream,
 			     struct snd_pcm_hw_params *params)
 {
@@ -103,11 +139,12 @@ static int cht_aif1_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	int ret;
 
-	ret = snd_soc_dai_set_sysclk(codec_dai, NAU8824_CLK_FLL_FS, 0,
-		SND_SOC_CLOCK_IN);
+	ret = snd_soc_dai_set_sysclk(codec_dai, NAU8824_CLK_MCLK,
+				     24000000,
+				     SND_SOC_CLOCK_IN);
 	if (ret < 0)
-		dev_err(codec_dai->dev, "can't set FS clock %d\n", ret);
-
+		dev_err(codec_dai->dev, "can't set sys clock %d\n", ret);
+									   /*
 	ret = snd_soc_dai_set_pll(codec_dai, 0, 0, params_rate(params),
 		params_rate(params) * 256);
 	if (ret < 0)
@@ -116,7 +153,7 @@ static int cht_aif1_hw_params(struct snd_pcm_substream *substream,
 	ret = snd_soc_dai_set_clkdiv(codec_dai, NAU8824_DMIC_SRC, 0x2);
 	if (ret < 0)
 		dev_err(codec_dai->dev, "snd_soc_dai_set_clkdiv err = %d\n", ret);
-
+									   */
 	return 0;
 }
 
@@ -170,7 +207,7 @@ static int cht_codec_fixup(struct snd_soc_pcm_runtime *rtd,
 		return ret;
 	}
 
-	fmt = SND_SOC_DAIFMT_LEFT_J | SND_SOC_DAIFMT_NB_NF
+	fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF
 				| SND_SOC_DAIFMT_CBS_CFS;
 
 	ret = snd_soc_dai_set_fmt(rtd->cpu_dai, fmt);
