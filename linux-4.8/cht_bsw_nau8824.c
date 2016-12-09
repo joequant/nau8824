@@ -164,6 +164,15 @@ static int cht_codec_fixup(struct snd_soc_pcm_runtime *rtd,
 	int ret = 0;
 	unsigned int fmt = 0;
 
+	fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_IF
+	  | SND_SOC_DAIFMT_CBS_CFS;
+	
+	ret = snd_soc_dai_set_fmt(rtd->cpu_dai, fmt);
+	if (ret < 0) {
+	  dev_err(rtd->dev, "can't set cpu_dai set fmt: %d\n", ret);
+	  return ret;
+	}
+
 	/* The DSP will covert the FE rate to 48k, stereo, 24bits */
 	rate->min = rate->max = 48000;
 	channels->min = channels->max = 2;
@@ -230,7 +239,7 @@ static struct snd_soc_dai_link cht_dailink[] = {
 		.no_pcm = 1,
 		.codec_dai_name = "nau8824-hifi",
 		.codec_name = "i2c-10508824:00",
-		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF
+		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_IF
 					| SND_SOC_DAIFMT_CBS_CFS,
 		.init = cht_codec_init,
 		.be_hw_params_fixup = cht_codec_fixup,
