@@ -844,6 +844,7 @@ static irqreturn_t nau8824_interrupt(int irq, void *data)
 		event_mask = NAU8824_BUTTONS;
 		clear_irq = NAU8824_KEY_RELEASE_IRQ;
 	} else if (active_irq & NAU8824_JACK_INSERTION_DETECTED) {
+	        dev_info(nau8824->dev, "Jack inserted\n");
 		/* Turn off insertion interruption at manual mode */
 		regmap_update_bits(regmap,
 			NAU8824_REG_INTERRUPT_SETTING,
