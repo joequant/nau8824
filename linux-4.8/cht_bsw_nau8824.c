@@ -62,13 +62,13 @@ static const struct snd_soc_dapm_widget cht_dapm_widgets[] = {
 	SND_SOC_DAPM_HP("Headphone", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("Int Mic", NULL),
-	SND_SOC_DAPM_SPK("Ext Spk", NULL),
+	SND_SOC_DAPM_SPK("Speaker", NULL),
 };
 
 static const struct snd_soc_dapm_route cht_audio_map[] = {
 	/* External Speakers: SPKOUTL, SPKOUTR */
-	{"Ext Spk", NULL, "SPKOUTL"},
-	{"Ext Spk", NULL, "SPKOUTR"},
+	{"Speaker", NULL, "SPKOUTL"},
+	{"Speaker", NULL, "SPKOUTR"},
 	/* Headset Stereophone(Headphone): HPOL, HPOR */
 	{"Headphone", NULL, "HPOL"},
 	{"Headphone", NULL, "HPOR"},
@@ -93,7 +93,7 @@ static const struct snd_kcontrol_new cht_mc_controls[] = {
 	SOC_DAPM_PIN_SWITCH("Headphone"),
 	SOC_DAPM_PIN_SWITCH("Headset Mic"),
 	SOC_DAPM_PIN_SWITCH("Int Mic"),
-	SOC_DAPM_PIN_SWITCH("Ext Spk"),
+	SOC_DAPM_PIN_SWITCH("Speaker"),
 };
 
 static int cht_aif1_hw_params(struct snd_pcm_substream *substream,
@@ -135,9 +135,9 @@ static int cht_codec_init(struct snd_soc_pcm_runtime *runtime)
 	* KEY_VOLUMEUP
 	* KEY_VOLUMEDOWN
 	*/
-	jack_type = SND_JACK_HEADSET | SND_JACK_BTN_0 | SND_JACK_BTN_1 |
+	jack_type = SND_JACK_HEADPHONE | SND_JACK_BTN_0 | SND_JACK_BTN_1 |
 	  SND_JACK_BTN_2 | SND_JACK_BTN_3;
-	ret = snd_soc_card_jack_new(runtime->card, "Headset Jack",
+	ret = snd_soc_card_jack_new(runtime->card, "Headset",
 					jack_type, jack, NULL, 0);
 
 	if (ret) {
