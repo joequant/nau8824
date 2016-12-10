@@ -72,7 +72,7 @@ static inline struct snd_soc_dai *cht_get_codec_dai(struct snd_soc_card *card)
 static const struct snd_soc_dapm_widget cht_dapm_widgets[] = {
 	SND_SOC_DAPM_HP("Headphone", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
-	SND_SOC_DAPM_MIC("Int Mic", NULL),
+	SND_SOC_DAPM_MIC("Internal Mic", NULL),
 	SND_SOC_DAPM_SPK("Speaker", NULL),
 };
 
@@ -84,10 +84,10 @@ static const struct snd_soc_dapm_route cht_audio_map[] = {
 	{"Headphone", NULL, "HPOL"},
 	{"Headphone", NULL, "HPOR"},
 
-	{"DMIC1", NULL, "Int Mic"},
-	{"DMIC2", NULL, "Int Mic"},
-	{"DMIC3", NULL, "Int Mic"},
-	{"DMIC4", NULL, "Int Mic"},
+	{"DMIC1", NULL, "Internal Mic"},
+	{"DMIC2", NULL, "Internal Mic"},
+	{"DMIC3", NULL, "Internal Mic"},
+	{"DMIC4", NULL, "Internal Mic"},
 	/* Headset Mic: Headset Mic with bias */
 	{"HSMIC1", NULL, "Headset Mic"},
 	{"HSMIC2", NULL, "Headset Mic"},
@@ -103,7 +103,7 @@ static const struct snd_soc_dapm_route cht_audio_map[] = {
 static const struct snd_kcontrol_new cht_mc_controls[] = {
 	SOC_DAPM_PIN_SWITCH("Headphone"),
 	SOC_DAPM_PIN_SWITCH("Headset Mic"),
-	SOC_DAPM_PIN_SWITCH("Int Mic"),
+	SOC_DAPM_PIN_SWITCH("Internal Mic"),
 	SOC_DAPM_PIN_SWITCH("Speaker"),
 };
 
