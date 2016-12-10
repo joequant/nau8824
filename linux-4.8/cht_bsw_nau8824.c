@@ -41,6 +41,17 @@ struct cht_acpi_card {
   struct snd_soc_card *soc_card;
 };
 
+static struct snd_soc_jack_pin cht_bsw_jack_pins[] = {
+  {
+    .pin    = "Headphone",
+    .mask   = SND_JACK_HEADPHONE,
+  },
+  {
+    .pin    = "Headset Mic",
+    .mask   = SND_JACK_MICROPHONE,
+  },
+};
+
 struct cht_mc_private {
   struct snd_soc_jack jack;
   struct cht_acpi_card *acpi_card;
@@ -138,10 +149,12 @@ static int cht_codec_init(struct snd_soc_pcm_runtime *runtime)
 	jack_type = SND_JACK_HEADPHONE | SND_JACK_BTN_0 | SND_JACK_BTN_1 |
 	  SND_JACK_BTN_2 | SND_JACK_BTN_3;
 	ret = snd_soc_card_jack_new(runtime->card, "Headset",
-					jack_type, jack, NULL, 0);
-
+				    jack_type, jack,
+				    cht_bsw_jack_pins,
+				    ARRAY_SIZE(cht_bsw_jack_pins));
 	if (ret) {
-		dev_err(runtime->dev, "Headset Jack creation failed %d\n", ret);
+		dev_err(runtime->dev, "Headset Jack creation failed %d\n",
+			ret);
 		return ret;
 	}
 	snd_jack_set_key(jack->jack, SND_JACK_BTN_0, KEY_MEDIA);
