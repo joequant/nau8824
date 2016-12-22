@@ -6,3 +6,6 @@ default:
 ucm:
 	mkdir -p /usr/share/alsa/ucm/chtnau8824
 	cp ../ucm/* /usr/share/alsa/ucm/chtnau8824
+
+clean:
+	rm -f *.ko *.o *.mod.* *.xz
