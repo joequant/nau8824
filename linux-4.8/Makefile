@@ -2,6 +2,7 @@ KDIR ?= /lib/modules/`uname -r`/build
 
 default:
 	$(MAKE) -C $(KDIR) M=$$PWD
+	xz *.ko
 
 ucm:
 	mkdir -p /usr/share/alsa/ucm/chtnau8824
