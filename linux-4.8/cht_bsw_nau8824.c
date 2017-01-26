@@ -124,10 +124,6 @@ static int cht_aif1_hw_params(struct snd_pcm_substream *substream,
 	if (ret < 0)
 		dev_err(codec_dai->dev, "can't set FLL: %d\n", ret);
 
-	ret = snd_soc_dai_set_clkdiv(codec_dai, NAU8824_DMIC_SRC, 0x2);
-	if (ret < 0)
-		dev_err(codec_dai->dev, "snd_soc_dai_set_clkdiv err = %d\n", ret);
-
 	return 0;
 }
 

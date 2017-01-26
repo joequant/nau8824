@@ -1,5 +1,5 @@
 /*
- * NAU8824 ALSA SoC audio driver
+ * NAU88L24 ALSA SoC audio driver
  *
  * Copyright 2016 Nuvoton Technology Corp.
  * Author: John Hsu <KCHSU0@nuvoton.com>
@@ -112,6 +112,9 @@
 #define NAU8824_REG_CHARGE_PUMP_CONTROL	0x80
 #define NAU8824_REG_CHARGE_PUMP_INPUT	0x81
 #define NAU8824_REG_MAX			NAU8824_REG_CHARGE_PUMP_INPUT
+/* 16-bit control register address, and 16-bits control register data */
+#define NAU8824_REG_ADDR_LEN		16
+#define NAU8824_REG_DATA_LEN		16
 
 
 /* ENA_CTRL (0x1) */
@@ -168,7 +171,8 @@
 #define NAU8824_FLL_CLK_SRC_FS		(0x3 << NAU8824_FLL_CLK_SRC_SFT)
 
 /* FLL4 (0x07) */
-#define NAU8824_FLL_REF_DIV_MASK	(0x3 << 10)
+#define NAU8824_FLL_REF_DIV_SFT	10
+#define NAU8824_FLL_REF_DIV_MASK	(0x3 << NAU8824_FLL_REF_DIV_SFT)
 
 /* FLL5 (0x08) */
 #define NAU8824_FLL_PDB_DAC_EN	(0x1 << 15)
@@ -244,10 +248,13 @@
 
 
 /* PORT0_I2S_PCM_CTRL_2 (0x1D) */
+#define NAU8824_I2S_LRC_DIV_SFT	12
+#define NAU8824_I2S_LRC_DIV_MASK	(0x3 << NAU8824_I2S_LRC_DIV_SFT)
 #define NAU8824_I2S_MS_SFT		3
 #define NAU8824_I2S_MS_MASK		(1 << NAU8824_I2S_MS_SFT)
 #define NAU8824_I2S_MS_MASTER		(1 << NAU8824_I2S_MS_SFT)
 #define NAU8824_I2S_MS_SLAVE		(0 << NAU8824_I2S_MS_SFT)
+#define NAU8824_I2S_BLK_DIV_MASK	0x7
 
 /* ADC_FILTER_CTRL (0x24) */
 #define NAU8824_ADC_SYNC_DOWN_MASK	0x3
@@ -407,20 +414,13 @@ enum {
 	NAU8824_CLK_FLL_FS,
 };
 
-/* Clock Divider */
-enum {
-	NAU8824_DAC_SRC,
-	NAU8824_ADC_SRC,
-	NAU8824_DMIC_SRC,
-};
-
-
 struct nau8824 {
 	struct device *dev;
 	struct regmap *regmap;
 	struct snd_soc_dapm_context *dapm;
 	struct snd_soc_jack *jack;
 	struct work_struct jdet_work;
+	struct semaphore jd_sem;
 	int irq;
 	int micbias_voltage;
 	int vref_impedance;
@@ -433,6 +433,25 @@ struct nau8824 {
 	int key_debounce;
 	int jack_eject_debounce;
 };
+
+struct nau8824_fll {
+	int mclk_src;
+	int ratio;
+	int fll_frac;
+	int fll_int;
+	int clk_ref_div;
+};
+
+struct nau8824_fll_attr {
+	unsigned int param;
+	unsigned int val;
+};
+
+struct nau8824_osr_attr {
+	unsigned int osr;
+	unsigned int clk_src;
+};
+
 
 int nau8824_enable_jack_detect(struct snd_soc_codec *codec,
 	struct snd_soc_jack *jack);
