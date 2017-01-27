@@ -761,28 +761,33 @@ static void nau8824_eject_jack(struct nau8824 *nau8824)
 	struct snd_soc_dapm_context *dapm = nau8824->dapm;
 	struct regmap *regmap = nau8824->regmap;
 
+
+	if (dapm) {
+	  snd_soc_dapm_disable_pin(dapm, "SAR");
+	  snd_soc_dapm_disable_pin(dapm, "MICBIAS");
+	  snd_soc_dapm_sync(dapm);
+	}
 	/* Clear all interruption status */
-	nau8824_int_status_clear_all(regmap);
+	if (regmap) {
+	  nau8824_int_status_clear_all(regmap);
 
-	snd_soc_dapm_disable_pin(dapm, "SAR");
-	snd_soc_dapm_disable_pin(dapm, "MICBIAS");
-	snd_soc_dapm_sync(dapm);
 
-	/* Enable the insertion interruption, disable the ejection
-	 * interruption, and then bypass de-bounce circuit.
-	 */
-	regmap_update_bits(regmap, NAU8824_REG_INTERRUPT_SETTING,
-		NAU8824_IRQ_KEY_RELEASE_DIS | NAU8824_IRQ_KEY_SHORT_PRESS_DIS |
-		NAU8824_IRQ_EJECT_DIS | NAU8824_IRQ_INSERT_DIS,
-		NAU8824_IRQ_KEY_RELEASE_DIS | NAU8824_IRQ_KEY_SHORT_PRESS_DIS |
-		NAU8824_IRQ_EJECT_DIS);
-	regmap_update_bits(regmap, NAU8824_REG_INTERRUPT_SETTING_1,
-		NAU8824_IRQ_INSERT_EN | NAU8824_IRQ_EJECT_EN,
-		NAU8824_IRQ_INSERT_EN);
-	regmap_update_bits(regmap, NAU8824_REG_ENA_CTRL,
-		NAU8824_JD_SLEEP_MODE, NAU8824_JD_SLEEP_MODE);
+	  /* Enable the insertion interruption, disable the ejection
+	   * interruption, and then bypass de-bounce circuit.
+	   */
+	  regmap_update_bits(regmap, NAU8824_REG_INTERRUPT_SETTING,
+			     NAU8824_IRQ_KEY_RELEASE_DIS | NAU8824_IRQ_KEY_SHORT_PRESS_DIS |
+			     NAU8824_IRQ_EJECT_DIS | NAU8824_IRQ_INSERT_DIS,
+			     NAU8824_IRQ_KEY_RELEASE_DIS | NAU8824_IRQ_KEY_SHORT_PRESS_DIS |
+			     NAU8824_IRQ_EJECT_DIS);
+	  regmap_update_bits(regmap, NAU8824_REG_INTERRUPT_SETTING_1,
+			     NAU8824_IRQ_INSERT_EN | NAU8824_IRQ_EJECT_EN,
+			     NAU8824_IRQ_INSERT_EN);
+	  regmap_update_bits(regmap, NAU8824_REG_ENA_CTRL,
+			     NAU8824_JD_SLEEP_MODE, NAU8824_JD_SLEEP_MODE);
 
-	/* Close clock for jack type detection at manual mode */
+	  /* Close clock for jack type detection at manual mode */
+	}
 	nau8824_config_sysclk(nau8824, NAU8824_CLK_DIS, 0);
 }
 
@@ -793,6 +798,9 @@ static void nau8824_jdet_work(struct work_struct *work)
 	struct snd_soc_dapm_context *dapm = nau8824->dapm;
 	struct regmap *regmap = nau8824->regmap;
 	int adc_value, event = 0, event_mask = 0;
+	if (!dapm) {
+	  return;
+	}
 
 	snd_soc_dapm_force_enable_pin(dapm, "MICBIAS");
 	snd_soc_dapm_force_enable_pin(dapm, "SAR");
