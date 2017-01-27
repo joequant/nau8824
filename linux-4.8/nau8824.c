@@ -1656,6 +1656,20 @@ static int nau8824_read_device_properties(struct device *dev,
 	device_property_read_u32(dev, "nuvoton,jack-eject-debounce",
 		&nau8824->jack_eject_debounce);
 
+	nau8824->micbias_voltage = 6;
+	nau8824->vref_impedance = 2;
+	nau8824->sar_threshold_num = 4;
+	nau8824->sar_threshold[0] = 0x0a;
+	nau8824->sar_threshold[1] = 0x14;
+	nau8824->sar_threshold[2] = 0x26;
+	nau8824->sar_threshold[3] = 0x73;
+	nau8824->sar_hysteresis = 0;
+	nau8824->sar_voltage = 6;
+	nau8824->sar_compare_time = 1;
+	nau8824->sar_sampling_time = 1;
+	nau8824->key_debounce = 0;
+	nau8824->jack_eject_debounce = 1;
+
 	return 0;
 }
 
