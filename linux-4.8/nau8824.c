@@ -1432,7 +1432,7 @@ static const struct regmap_config nau8824_regmap_config = {
  * events will be routed to the given jack.  Jack can be null to stop
  * reporting.
  */
-int nau8825_enable_jack_detect(struct snd_soc_codec *codec,
+int nau8824_enable_jack_detect(struct snd_soc_codec *codec,
 	struct snd_soc_jack *jack)
 {
 	struct nau8824 *nau8824 = snd_soc_codec_get_drvdata(codec);
@@ -1443,7 +1443,7 @@ int nau8825_enable_jack_detect(struct snd_soc_codec *codec,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(nau8825_enable_jack_detect);
+EXPORT_SYMBOL_GPL(nau8824_enable_jack_detect);
 
 static void nau8824_reset_chip(struct regmap *regmap)
 {
