@@ -3,7 +3,7 @@ KDIR ?= $(MDIR)/build
 
 default:
 	$(MAKE) -C $(KDIR) M=$$PWD
-	xz *.ko
+	xz -f *.ko
 
 install:
 	cp snd-intel-sst-acpi.ko.xz $(MDIR)/kernel/sound/soc/intel/atom/sst
