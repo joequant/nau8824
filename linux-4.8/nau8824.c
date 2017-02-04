@@ -1632,6 +1632,23 @@ static void nau8824_print_device_properties(struct nau8824 *nau8824)
 			nau8824->jack_eject_debounce);
 }
 
+static int nau8824_set_default_properties(struct nau8824 *nau8824) {
+        nau8824->micbias_voltage = 6;
+	nau8824->vref_impedance = 2;
+	nau8824->sar_threshold_num = 4;
+	nau8824->sar_threshold[0] = 0x0a;
+	nau8824->sar_threshold[1] = 0x14;
+	nau8824->sar_threshold[2] = 0x26;
+	nau8824->sar_threshold[3] = 0x73;
+	nau8824->sar_hysteresis = 0;
+	nau8824->sar_voltage = 6;
+	nau8824->sar_compare_time = 1;
+	nau8824->sar_sampling_time = 1;
+	nau8824->key_debounce = 0;
+	nau8824->jack_eject_debounce = 1;
+        return 0;
+}
+
 static int nau8824_read_device_properties(struct device *dev,
 	struct nau8824 *nau8824) {
 
@@ -1655,21 +1672,6 @@ static int nau8824_read_device_properties(struct device *dev,
 		&nau8824->key_debounce);
 	device_property_read_u32(dev, "nuvoton,jack-eject-debounce",
 		&nau8824->jack_eject_debounce);
-
-	nau8824->micbias_voltage = 6;
-	nau8824->vref_impedance = 2;
-	nau8824->sar_threshold_num = 4;
-	nau8824->sar_threshold[0] = 0x0a;
-	nau8824->sar_threshold[1] = 0x14;
-	nau8824->sar_threshold[2] = 0x26;
-	nau8824->sar_threshold[3] = 0x73;
-	nau8824->sar_hysteresis = 0;
-	nau8824->sar_voltage = 6;
-	nau8824->sar_compare_time = 1;
-	nau8824->sar_sampling_time = 1;
-	nau8824->key_debounce = 0;
-	nau8824->jack_eject_debounce = 1;
-
 	return 0;
 }
 
@@ -1684,6 +1686,7 @@ static int nau8824_i2c_probe(struct i2c_client *i2c,
 		nau8824 = devm_kzalloc(dev, sizeof(*nau8824), GFP_KERNEL);
 		if (!nau8824)
 			return -ENOMEM;
+		nau8824_set_default_properties(nau8824);
 		ret = nau8824_read_device_properties(dev, nau8824);
 		if (ret)
 			return ret;
