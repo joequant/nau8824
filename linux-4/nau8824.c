@@ -31,21 +31,17 @@
 #include "nau8824.h"
 
 
-#define NUVOTON_CODEC_DAI "nau8824-hifi"
-
-#define NAU_FREF_MAX 13500000
-#define NAU_FVCO_MAX 124000000
-#define NAU_FVCO_MIN 90000000
-
-/* the maximum frequency of CLK_ADC and CLK_DAC */
-#define CLK_DA_AD_MAX 6144000
-
-#define NAU8824_HEADSET_SARADC_THD	0x80
+/* the ADC threshold of headset */
+#define HEADSET_SARADC_THD	0x80
 
 static int nau8824_config_sysclk(struct nau8824 *nau8824,
 	int clk_id, unsigned int freq);
 static bool nau8824_is_jack_inserted(struct nau8824 *nau8824);
 
+/* the parameter threshold of FLL */
+#define NAU_FREF_MAX 13500000
+#define NAU_FVCO_MAX 124000000
+#define NAU_FVCO_MIN 90000000
 
 /* scaling for mclk from sysclk_src output */
 static const struct nau8824_fll_attr mclk_src_scaling[] = {
@@ -78,6 +74,9 @@ static const struct nau8824_fll_attr fll_pre_scalar[] = {
 	{ 4, 0x2 },
 	{ 8, 0x3 },
 };
+
+/* the maximum frequency of CLK_ADC and CLK_DAC */
+#define CLK_DA_AD_MAX 6144000
 
 /* over sampling rate */
 static const struct nau8824_osr_attr osr_dac_sel[] = {
@@ -305,16 +304,14 @@ static const struct soc_enum nau8824_companding_dac_enum =
 		ARRAY_SIZE(nau8824_companding), nau8824_companding);
 
 static const char * const nau8824_adc_decimation[] = {
-	"32", "64", "128", "256"
-};
+	"32", "64", "128", "256" };
 
 static const struct soc_enum nau8824_adc_decimation_enum =
 	SOC_ENUM_SINGLE(NAU8824_REG_ADC_FILTER_CTRL, 0,
 		ARRAY_SIZE(nau8824_adc_decimation), nau8824_adc_decimation);
 
 static const char * const nau8824_dac_oversampl[] = {
-	"64", "256", "128", "", "32"
-};
+	"64", "256", "128", "", "32" };
 
 static const struct soc_enum nau8824_dac_oversampl_enum =
 	SOC_ENUM_SINGLE(NAU8824_REG_DAC_FILTER_CTRL_1, 0,
@@ -550,9 +547,7 @@ static const struct snd_kcontrol_new nau8824_hp_right_mixer[] = {
 		NAU8824_DACR_HPR_EN_SFT, 1, 0),
 };
 
-static const char * const nau8824_dac_src[] = {
-	"DACL", "DACR",
-};
+static const char * const nau8824_dac_src[] = { "DACL", "DACR" };
 
 static SOC_ENUM_SINGLE_DECL(
 	nau8824_dacl_enum, NAU8824_REG_DAC_CH0_DGAIN_CTRL,
@@ -736,8 +731,12 @@ static const struct snd_soc_dapm_route nau8824_dapm_routes[] = {
 static bool nau8824_is_jack_inserted(struct nau8824 *nau8824)
 {
 	struct snd_soc_jack *jack = nau8824->jack;
+	bool insert = FALSE;
 
-	return (jack->status & SND_JACK_HEADPHONE);
+	if (nau8824->irq && jack)
+		insert = jack->status & SND_JACK_HEADPHONE;
+
+	return insert;
 }
 
 static void nau8824_int_status_clear_all(struct regmap *regmap)
@@ -761,33 +760,30 @@ static void nau8824_eject_jack(struct nau8824 *nau8824)
 	struct snd_soc_dapm_context *dapm = nau8824->dapm;
 	struct regmap *regmap = nau8824->regmap;
 
-
 	if (dapm) {
 	  snd_soc_dapm_disable_pin(dapm, "SAR");
 	  snd_soc_dapm_disable_pin(dapm, "MICBIAS");
 	  snd_soc_dapm_sync(dapm);
 	}
+
 	/* Clear all interruption status */
-	if (regmap) {
-	  nau8824_int_status_clear_all(regmap);
+	nau8824_int_status_clear_all(regmap);
 
+	/* Enable the insertion interruption, disable the ejection
+	 * interruption, and then bypass de-bounce circuit.
+	 */
+	regmap_update_bits(regmap, NAU8824_REG_INTERRUPT_SETTING,
+		NAU8824_IRQ_KEY_RELEASE_DIS | NAU8824_IRQ_KEY_SHORT_PRESS_DIS |
+		NAU8824_IRQ_EJECT_DIS | NAU8824_IRQ_INSERT_DIS,
+		NAU8824_IRQ_KEY_RELEASE_DIS | NAU8824_IRQ_KEY_SHORT_PRESS_DIS |
+		NAU8824_IRQ_EJECT_DIS);
+	regmap_update_bits(regmap, NAU8824_REG_INTERRUPT_SETTING_1,
+		NAU8824_IRQ_INSERT_EN | NAU8824_IRQ_EJECT_EN,
+		NAU8824_IRQ_INSERT_EN);
+	regmap_update_bits(regmap, NAU8824_REG_ENA_CTRL,
+		NAU8824_JD_SLEEP_MODE, NAU8824_JD_SLEEP_MODE);
 
-	  /* Enable the insertion interruption, disable the ejection
-	   * interruption, and then bypass de-bounce circuit.
-	   */
-	  regmap_update_bits(regmap, NAU8824_REG_INTERRUPT_SETTING,
-			     NAU8824_IRQ_KEY_RELEASE_DIS | NAU8824_IRQ_KEY_SHORT_PRESS_DIS |
-			     NAU8824_IRQ_EJECT_DIS | NAU8824_IRQ_INSERT_DIS,
-			     NAU8824_IRQ_KEY_RELEASE_DIS | NAU8824_IRQ_KEY_SHORT_PRESS_DIS |
-			     NAU8824_IRQ_EJECT_DIS);
-	  regmap_update_bits(regmap, NAU8824_REG_INTERRUPT_SETTING_1,
-			     NAU8824_IRQ_INSERT_EN | NAU8824_IRQ_EJECT_EN,
-			     NAU8824_IRQ_INSERT_EN);
-	  regmap_update_bits(regmap, NAU8824_REG_ENA_CTRL,
-			     NAU8824_JD_SLEEP_MODE, NAU8824_JD_SLEEP_MODE);
-
-	  /* Close clock for jack type detection at manual mode */
-	}
+	/* Close clock for jack type detection at manual mode */
 	nau8824_config_sysclk(nau8824, NAU8824_CLK_DIS, 0);
 }
 
@@ -798,20 +794,19 @@ static void nau8824_jdet_work(struct work_struct *work)
 	struct snd_soc_dapm_context *dapm = nau8824->dapm;
 	struct regmap *regmap = nau8824->regmap;
 	int adc_value, event = 0, event_mask = 0;
-	if (!dapm) {
-	  return;
-	}
 
-	snd_soc_dapm_force_enable_pin(dapm, "MICBIAS");
-	snd_soc_dapm_force_enable_pin(dapm, "SAR");
-	snd_soc_dapm_sync(dapm);
+	if (dapm) {
+	  snd_soc_dapm_force_enable_pin(dapm, "MICBIAS");
+	  snd_soc_dapm_force_enable_pin(dapm, "SAR");
+	  snd_soc_dapm_sync(dapm);
+	}
 
 	msleep(100);
 
 	regmap_read(regmap, NAU8824_REG_SAR_ADC_DATA_OUT, &adc_value);
 	adc_value = adc_value & NAU8824_SAR_ADC_DATA_MASK;
 	dev_dbg(nau8824->dev, "SAR ADC data 0x%02x\n", adc_value);
-	if (adc_value < NAU8824_HEADSET_SARADC_THD) {
+	if (adc_value < HEADSET_SARADC_THD) {
 		event |= SND_JACK_HEADPHONE;
 
 		snd_soc_dapm_disable_pin(dapm, "SAR");
@@ -826,7 +821,6 @@ static void nau8824_jdet_work(struct work_struct *work)
 	nau8824_sema_release(nau8824);
 }
 
-/* Enable audo mode interruptions with internal clock. */
 static void nau8824_setup_auto_irq(struct nau8824 *nau8824)
 {
 	struct regmap *regmap = nau8824->regmap;
@@ -883,6 +877,9 @@ static irqreturn_t nau8824_interrupt(int irq, void *data)
 	dev_dbg(nau8824->dev, "IRQ %x\n", active_irq);
 
 	if (active_irq & NAU8824_JACK_EJECTION_DETECTED) {
+		/* cancel jack detection */
+		cancel_work_sync(&nau8824->jdet_work);
+
 		nau8824_eject_jack(nau8824);
 		event_mask |= SND_JACK_HEADSET;
 		clear_irq = NAU8824_JACK_EJECTION_DETECTED;
@@ -971,7 +968,8 @@ static int nau8824_hw_params(struct snd_pcm_substream *substream,
 	 * than 6.144 MHz.
 	 */
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		regmap_read(nau8824->regmap, NAU8824_REG_DAC_FILTER_CTRL_1, &osr);
+		regmap_read(nau8824->regmap,
+			NAU8824_REG_DAC_FILTER_CTRL_1, &osr);
 		osr &= NAU8824_DAC_OVERSAMPLE_MASK;
 		if (nau8824_clock_check(nau8824, substream->stream,
 			params_rate(params), osr))
@@ -980,7 +978,8 @@ static int nau8824_hw_params(struct snd_pcm_substream *substream,
 			NAU8824_CLK_DAC_SRC_MASK,
 			osr_dac_sel[osr].clk_src << NAU8824_CLK_DAC_SRC_SFT);
 	} else {
-		regmap_read(nau8824->regmap, NAU8824_REG_ADC_FILTER_CTRL, &osr);
+		regmap_read(nau8824->regmap,
+			NAU8824_REG_ADC_FILTER_CTRL, &osr);
 		osr &= NAU8824_ADC_SYNC_DOWN_MASK;
 		if (nau8824_clock_check(nau8824, substream->stream,
 			params_rate(params), osr))
@@ -1277,23 +1276,23 @@ static int nau8824_set_sysclk(struct snd_soc_codec *codec,
 
 static void nau8824_resume_setup(struct nau8824 *nau8824)
 {
-	/* Enable jack detection at sleep mode, insertion detection,
-	 * and ejection detection.
-	 */
 	nau8824_config_sysclk(nau8824, NAU8824_CLK_DIS, 0);
-
-	/* Clear all interruption status */
-	nau8824_int_status_clear_all(nau8824->regmap);
-	regmap_update_bits(nau8824->regmap, NAU8824_REG_ENA_CTRL,
-		NAU8824_JD_SLEEP_MODE, NAU8824_JD_SLEEP_MODE);
-	regmap_update_bits(nau8824->regmap, NAU8824_REG_INTERRUPT_SETTING_1,
-		NAU8824_IRQ_EJECT_EN | NAU8824_IRQ_INSERT_EN,
-		NAU8824_IRQ_EJECT_EN | NAU8824_IRQ_INSERT_EN);
-	regmap_update_bits(nau8824->regmap, NAU8824_REG_INTERRUPT_SETTING,
-		NAU8824_IRQ_EJECT_DIS | NAU8824_IRQ_INSERT_DIS, 0);
-	regmap_update_bits(nau8824->regmap, NAU8824_REG_JACK_DET_CTRL,
-		NAU8824_JACK_EJECT_DT_MASK, (nau8824->jack_eject_debounce
-		<< NAU8824_JACK_EJECT_DT_SFT));
+	if (nau8824->irq) {
+		/* Clear all interruption status */
+		nau8824_int_status_clear_all(nau8824->regmap);
+		/* Enable jack detection at sleep mode, insertion detection,
+		 * and ejection detection.
+		 */
+		regmap_update_bits(nau8824->regmap, NAU8824_REG_ENA_CTRL,
+			NAU8824_JD_SLEEP_MODE, NAU8824_JD_SLEEP_MODE);
+		regmap_update_bits(nau8824->regmap,
+			NAU8824_REG_INTERRUPT_SETTING_1,
+			NAU8824_IRQ_EJECT_EN | NAU8824_IRQ_INSERT_EN,
+			NAU8824_IRQ_EJECT_EN | NAU8824_IRQ_INSERT_EN);
+		regmap_update_bits(nau8824->regmap,
+			NAU8824_REG_INTERRUPT_SETTING,
+			NAU8824_IRQ_EJECT_DIS | NAU8824_IRQ_INSERT_DIS, 0);
+	}
 }
 
 static int nau8824_set_bias_level(struct snd_soc_codec *codec,
@@ -1318,7 +1317,8 @@ static int nau8824_set_bias_level(struct snd_soc_codec *codec,
 	case SND_SOC_BIAS_OFF:
 		regmap_update_bits(nau8824->regmap,
 			NAU8824_REG_INTERRUPT_SETTING, 0x3ff, 0x3ff);
-		regmap_update_bits(nau8824->regmap, NAU8824_REG_INTERRUPT_SETTING_1,
+		regmap_update_bits(nau8824->regmap,
+			NAU8824_REG_INTERRUPT_SETTING_1,
 			NAU8824_IRQ_EJECT_EN | NAU8824_IRQ_INSERT_EN, 0);
 		break;
 	}
@@ -1341,8 +1341,10 @@ static int __maybe_unused nau8824_suspend(struct snd_soc_codec *codec)
 {
 	struct nau8824 *nau8824 = snd_soc_codec_get_drvdata(codec);
 
-	disable_irq(nau8824->irq);
-	snd_soc_codec_force_bias_level(codec, SND_SOC_BIAS_OFF);
+	if (nau8824->irq) {
+		disable_irq(nau8824->irq);
+		snd_soc_codec_force_bias_level(codec, SND_SOC_BIAS_OFF);
+	}
 	regcache_cache_only(nau8824->regmap, true);
 	regcache_mark_dirty(nau8824->regmap);
 
@@ -1355,8 +1357,10 @@ static int __maybe_unused nau8824_resume(struct snd_soc_codec *codec)
 
 	regcache_cache_only(nau8824->regmap, false);
 	regcache_sync(nau8824->regmap);
-	nau8824_sema_acquire(nau8824, 0);
-	enable_irq(nau8824->irq);
+	if (nau8824->irq) {
+		nau8824_sema_acquire(nau8824, 0);
+		enable_irq(nau8824->irq);
+	}
 
 	return 0;
 }
@@ -1390,7 +1394,7 @@ static const struct snd_soc_dai_ops nau8824_dai_ops = {
 	 | SNDRV_PCM_FMTBIT_S24_3LE | SNDRV_PCM_FMTBIT_S32_LE)
 
 static struct snd_soc_dai_driver nau8824_dai = {
-	.name = NUVOTON_CODEC_DAI,
+	.name = NAU8824_CODEC_DAI,
 	.playback = {
 		.stream_name	 = "Playback",
 		.channels_min	 = 1,
@@ -1436,8 +1440,6 @@ int nau8824_enable_jack_detect(struct snd_soc_codec *codec,
 	struct snd_soc_jack *jack)
 {
 	struct nau8824 *nau8824 = snd_soc_codec_get_drvdata(codec);
-
-	//dev_info(nau8824->dev, "%s:%d\n", __func__, __LINE__);
 
 	nau8824->jack = jack;
 
@@ -1584,7 +1586,9 @@ static void nau8824_init_regs(struct nau8824 *nau8824)
 	regmap_update_bits(regmap, NAU8824_REG_ANALOG_CONTROL_1,
 		NAU8824_DMIC_CLK_DRV_STRG | NAU8824_DMIC_CLK_SLEW_FAST,
 		NAU8824_DMIC_CLK_DRV_STRG | NAU8824_DMIC_CLK_SLEW_FAST);
-
+	regmap_update_bits(nau8824->regmap,
+		NAU8824_REG_JACK_DET_CTRL, NAU8824_JACK_EJECT_DT_MASK,
+		(nau8824->jack_eject_debounce << NAU8824_JACK_EJECT_DT_SFT));
 	if (nau8824->sar_threshold_num)
 		nau8824_setup_buttons(nau8824);
 }
@@ -1593,11 +1597,13 @@ static int nau8824_setup_irq(struct nau8824 *nau8824)
 {
 	int ret;
 
+	/* Disable interruption before codec initiation done */
 	regmap_update_bits(nau8824->regmap,
 		NAU8824_REG_INTERRUPT_SETTING, 0x3ff, 0x3ff);
 	regmap_update_bits(nau8824->regmap, NAU8824_REG_INTERRUPT_SETTING_1,
 		NAU8824_IRQ_EJECT_EN | NAU8824_IRQ_INSERT_EN, 0);
 
+	/* Initiate jack detection work queue */
 	INIT_WORK(&nau8824->jdet_work, nau8824_jdet_work);
 	ret = devm_request_threaded_irq(nau8824->dev, nau8824->irq, NULL,
 		nau8824_interrupt, IRQF_TRIGGER_LOW | IRQF_ONESHOT,
@@ -1632,22 +1638,24 @@ static void nau8824_print_device_properties(struct nau8824 *nau8824)
 			nau8824->jack_eject_debounce);
 }
 
+
 static int nau8824_set_default_properties(struct nau8824 *nau8824) {
-        nau8824->micbias_voltage = 6;
-	nau8824->vref_impedance = 2;
-	nau8824->sar_threshold_num = 4;
-	nau8824->sar_threshold[0] = 0x0a;
-	nau8824->sar_threshold[1] = 0x14;
-	nau8824->sar_threshold[2] = 0x26;
-	nau8824->sar_threshold[3] = 0x73;
-	nau8824->sar_hysteresis = 0;
-	nau8824->sar_voltage = 6;
-	nau8824->sar_compare_time = 1;
-	nau8824->sar_sampling_time = 1;
-	nau8824->key_debounce = 0;
-	nau8824->jack_eject_debounce = 1;
-        return 0;
+       nau8824->micbias_voltage = 6;
+       nau8824->vref_impedance = 2;
+       nau8824->sar_threshold_num = 4;
+       nau8824->sar_threshold[0] = 0x0a;
+       nau8824->sar_threshold[1] = 0x14;
+       nau8824->sar_threshold[2] = 0x26;
+       nau8824->sar_threshold[3] = 0x73;
+       nau8824->sar_hysteresis = 0;
+       nau8824->sar_voltage = 6;
+       nau8824->sar_compare_time = 1;
+       nau8824->sar_sampling_time = 1;
+       nau8824->key_debounce = 0;
+       nau8824->jack_eject_debounce = 1;
+       return 0;
 }
+
 
 static int nau8824_read_device_properties(struct device *dev,
 	struct nau8824 *nau8824) {
@@ -1672,6 +1680,7 @@ static int nau8824_read_device_properties(struct device *dev,
 		&nau8824->key_debounce);
 	device_property_read_u32(dev, "nuvoton,jack-eject-debounce",
 		&nau8824->jack_eject_debounce);
+
 	return 0;
 }
 

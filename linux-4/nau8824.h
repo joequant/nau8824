@@ -404,6 +404,8 @@
 #define NAU8824_CHARGE_PUMP_EN	(0x1 << NAU8824_CHARGE_PUMP_EN_SFT)
 
 
+#define NAU8824_CODEC_DAI "nau8824-hifi"
+
 /* System Clock Source */
 enum {
 	NAU8824_CLK_DIS,
