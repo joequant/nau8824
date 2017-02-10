@@ -808,10 +808,11 @@ static void nau8824_jdet_work(struct work_struct *work)
 	dev_dbg(nau8824->dev, "SAR ADC data 0x%02x\n", adc_value);
 	if (adc_value < HEADSET_SARADC_THD) {
 		event |= SND_JACK_HEADPHONE;
-
-		snd_soc_dapm_disable_pin(dapm, "SAR");
-		snd_soc_dapm_disable_pin(dapm, "MICBIAS");
-		snd_soc_dapm_sync(dapm);
+               if (dapm) {
+		  snd_soc_dapm_disable_pin(dapm, "SAR");
+		  snd_soc_dapm_disable_pin(dapm, "MICBIAS");
+		  snd_soc_dapm_sync(dapm);
+	       }
 	} else {
 		event |= SND_JACK_HEADSET;
 	}
@@ -1332,7 +1333,7 @@ static int nau8824_codec_probe(struct snd_soc_codec *codec)
 	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(codec);
 
 	nau8824->dapm = dapm;
-	if (dapm) {
+	if (dapm && dapm->card) {
 	  snd_soc_dapm_sync(nau8824->dapm);
 	}
 
