@@ -1,4 +1,5 @@
-MDIR ?= /lib/modules/`uname -r`
+KVER ?= `uname -r`
+MDIR ?= /lib/modules/$(KVER)
 KDIR ?= $(MDIR)/build
 
 default:
@@ -9,7 +10,7 @@ install:
 	cp snd-intel-sst-acpi.ko.xz $(MDIR)/kernel/sound/soc/intel/atom/sst
 	cp snd-soc-nau8824.ko.xz $(MDIR)/kernel/sound/soc/codecs
 	cp snd-soc-sst-cht-bsw-nau8824.ko.xz $(MDIR)/kernel/sound/soc/intel/boards
-	depmod -a
+	depmod -a $(KVER)
 
 ucm:
 	mkdir -p /usr/share/alsa/ucm/chtnau8824
