@@ -200,6 +200,8 @@
 /* JACK_DET_CTRL (0x0D) */
 #define NAU8824_JACK_EJECT_DT_SFT	2
 #define NAU8824_JACK_EJECT_DT_MASK (0x3 << NAU8824_JACK_EJECT_DT_SFT)
+#define NAU8824_JACK_LOGIC		0x1
+
 
 /* INTERRUPT_SETTING_1 (0x0F) */
 #define NAU8824_IRQ_EJECT_EN		(0x1 << 9)
@@ -255,6 +257,18 @@
 #define NAU8824_I2S_MS_MASTER		(1 << NAU8824_I2S_MS_SFT)
 #define NAU8824_I2S_MS_SLAVE		(0 << NAU8824_I2S_MS_SFT)
 #define NAU8824_I2S_BLK_DIV_MASK	0x7
+
+/* PORT0_LEFT_TIME_SLOT (0x1E) */
+#define NAU8824_TSLOT_L_MASK	0x3ff
+
+/* TDM_CTRL (0x20) */
+#define NAU8824_TDM_MODE		(0x1 << 15)
+#define NAU8824_TDM_OFFSET_EN		(0x1 << 14)
+#define NAU8824_TDM_DACL_RX_SFT	6
+#define NAU8824_TDM_DACL_RX_MASK	(0x3 << NAU8824_TDM_DACL_RX_SFT)
+#define NAU8824_TDM_DACR_RX_SFT	4
+#define NAU8824_TDM_DACR_RX_MASK	(0x3 << NAU8824_TDM_DACR_RX_SFT)
+#define NAU8824_TDM_TX_MASK		0xf
 
 /* ADC_FILTER_CTRL (0x24) */
 #define NAU8824_ADC_SYNC_DOWN_MASK	0x3
@@ -423,9 +437,11 @@ struct nau8824 {
 	struct snd_soc_jack *jack;
 	struct work_struct jdet_work;
 	struct semaphore jd_sem;
+	int fs;
 	int irq;
 	int micbias_voltage;
 	int vref_impedance;
+	int jkdet_polarity;
 	int sar_threshold_num;
 	int sar_threshold[8];
 	int sar_hysteresis;
